@@ -101,6 +101,14 @@ export function getFeedbacks() {
   return getDb().prepare("SELECT * FROM feedback ORDER BY created_at DESC").all();
 }
 
+export function getParticipantsByEmail(email: string) {
+  return getDb().prepare("SELECT * FROM participants WHERE email = ? ORDER BY created_at DESC").all(email);
+}
+
+export function getFeedbacksByEmail(email: string) {
+  return getDb().prepare("SELECT * FROM feedback WHERE participant_email = ? ORDER BY created_at DESC").all(email);
+}
+
 export function getStats() {
   const totalParticipants = getDb().prepare("SELECT COUNT(*) as count FROM participants").get() as { count: number };
   const totalFeedbacks = getDb().prepare("SELECT COUNT(*) as count FROM feedback").get() as { count: number };
