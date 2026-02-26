@@ -10,6 +10,7 @@ const trainingSessions = [
   "Prompt Engineering & LLM Integration",
   "Full-Stack AI Development",
   "AI Product Design & UX",
+  "Digital Profile Creation",
   "Deploying AI Solutions",
 ];
 

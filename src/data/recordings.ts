@@ -109,6 +109,18 @@ export const recordings: Recording[] = [
   },
   {
     id: "9",
+    sessionName: "Digital Profile Creation",
+    title: "Session 1: Building Your AI-Powered Digital Profile",
+    description:
+      "Create a stunning interactive portfolio with AI chatbot integration, animated career visualizations, skill maps, and SEO optimization — built and deployed in hours.",
+    duration: "2h 00m",
+    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    thumbnailUrl: "",
+    date: "2026-03-08",
+    topics: ["Portfolio", "AI Chatbot", "Next.js", "Vercel", "RAG"],
+  },
+  {
+    id: "10",
     sessionName: "Deploying AI Solutions",
     title: "Session 1: From Development to Production",
     description:
