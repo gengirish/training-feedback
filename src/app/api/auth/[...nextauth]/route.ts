@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { isAdminEmail } from "@/lib/auth";
 
 const handler = NextAuth({
   providers: [
@@ -13,6 +14,9 @@ const handler = NextAuth({
   },
   callbacks: {
     async session({ session }) {
+      if (session.user) {
+        (session.user as Record<string, unknown>).isAdmin = isAdminEmail(session.user.email);
+      }
       return session;
     },
   },

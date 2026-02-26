@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import { StarDisplay } from "@/components/StarRating";
 
@@ -47,11 +48,14 @@ interface Stats {
 type Tab = "overview" | "participants" | "feedback";
 
 export default function AdminPage() {
+  const { data: session, status } = useSession();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [stats, setStats] = useState<Stats | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isAdmin = session?.user?.isAdmin === true;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -72,8 +76,40 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (isAdmin) fetchData();
+  }, [fetchData, isAdmin]);
+
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <svg className="h-8 w-8 animate-spin text-primary-600" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="py-20">
+        <div className="mx-auto max-w-lg px-4 text-center">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8 sm:p-12">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-900/20">
+              <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Access Restricted</h1>
+            <p className="mt-3" style={{ color: "var(--muted)" }}>
+              The admin dashboard is only available to authorized administrators.
+            </p>
+            <a href="/" className="btn-primary mt-8 inline-flex">Go to Home</a>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },

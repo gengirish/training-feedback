@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getStats } from "@/lib/db";
+import { isAdminRequest } from "@/lib/admin";
 
 export async function GET() {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   try {
     const stats = getStats();
     return NextResponse.json(stats);

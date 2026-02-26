@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addFeedback, getFeedbacks } from "@/lib/db";
+import { isAdminRequest } from "@/lib/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,6 +37,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   try {
     const feedbacks = getFeedbacks();
     return NextResponse.json(feedbacks);

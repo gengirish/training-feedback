@@ -7,18 +7,21 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 
-const navLinks = [
+const publicNavLinks = [
   { href: "/", label: "Home" },
   { href: "/register", label: "Register" },
   { href: "/feedback", label: "Feedback" },
   { href: "/dashboard", label: "My Learning" },
-  { href: "/admin", label: "Admin" },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
+  const isAdmin = session?.user?.isAdmin === true;
+  const navLinks = isAdmin
+    ? [...publicNavLinks, { href: "/admin", label: "Admin" }]
+    : publicNavLinks;
   const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);

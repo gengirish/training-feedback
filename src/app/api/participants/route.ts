@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addParticipant, getParticipants } from "@/lib/db";
+import { isAdminRequest } from "@/lib/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +34,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   try {
     const participants = getParticipants();
     return NextResponse.json(participants);
