@@ -291,17 +291,26 @@ function RecordingsTab({
                 onClick={() => onPlayVideo(rec)}
               >
                 {/* Thumbnail */}
-                <div className="relative aspect-video bg-gradient-to-br from-primary-600 to-accent-purple">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm transition-transform group-hover:scale-110">
+                <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-primary-600 to-accent-purple">
+                  {rec.thumbnailUrl ? (
+                    <img
+                      src={rec.thumbnailUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/30 backdrop-blur-sm transition-transform group-hover:scale-110">
                       <svg className="h-7 w-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
                       </svg>
                     </div>
                   </div>
-                  <div className="absolute bottom-2 right-2 rounded-md bg-black/70 px-2 py-0.5 text-xs font-medium text-white">
-                    {rec.duration}
-                  </div>
+                  {rec.duration ? (
+                    <div className="absolute bottom-2 right-2 rounded-md bg-black/70 px-2 py-0.5 text-xs font-medium text-white">
+                      {rec.duration}
+                    </div>
+                  ) : null}
                 </div>
                 {/* Info */}
                 <div className="p-4">
