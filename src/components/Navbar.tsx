@@ -25,12 +25,17 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 border-b backdrop-blur-xl" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white font-bold text-sm">
-            TF
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary-600 to-accent-purple text-white font-bold text-xs">
+            IF
           </div>
-          <span className="text-lg font-bold" style={{ color: "var(--foreground)" }}>
-            Training Portal
-          </span>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold leading-tight" style={{ color: "var(--foreground)" }}>
+              IntelliForge AI
+            </span>
+            <span className="text-[10px] font-medium leading-tight" style={{ color: "var(--muted)" }}>
+              Training Portal
+            </span>
+          </div>
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">
@@ -61,6 +66,19 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
+          <a
+            href="https://www.intelliforge.tech/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all hover:border-primary-400 hover:text-primary-600 sm:inline-flex"
+            style={{ borderColor: "var(--card-border)", color: "var(--muted)" }}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+            intelliforge.tech
+          </a>
+
           {mounted && (
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -116,6 +134,17 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
+          <a
+            href="https://www.intelliforge.tech/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-primary-600"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+            Visit IntelliForge AI
+          </a>
         </motion.div>
       )}
     </nav>

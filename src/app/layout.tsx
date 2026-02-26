@@ -5,9 +5,9 @@ import { Footer } from "@/components/Footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Training Feedback Portal",
+  title: "Training Feedback Portal | IntelliForge AI",
   description:
-    "Register for training sessions and provide your valuable feedback",
+    "Register for AI training sessions by IntelliForge AI and provide your valuable feedback. From AI foundations to full application development.",
 };
 
 export default function RootLayout({

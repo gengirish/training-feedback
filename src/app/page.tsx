@@ -72,10 +72,19 @@ export default function HomePage() {
             transition={{ duration: 0.7 }}
             className="text-center"
           >
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium" style={{ borderColor: "var(--card-border)", color: "var(--muted)" }}>
+            <a
+              href="https://www.intelliforge.tech/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors hover:border-primary-400 hover:text-primary-600"
+              style={{ borderColor: "var(--card-border)", color: "var(--muted)" }}
+            >
               <span className="h-2 w-2 rounded-full bg-accent-green animate-pulse" />
-              Training Portal
-            </div>
+              An IntelliForge AI Initiative
+              <svg className="h-3.5 w-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+              </svg>
+            </a>
 
             <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl">
               <span style={{ color: "var(--foreground)" }}>Training </span>
@@ -85,8 +94,11 @@ export default function HomePage() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl" style={{ color: "var(--muted)" }}>
-              Register for upcoming training sessions, share your feedback,
-              and help us continuously improve the learning experience.
+              Register for upcoming AI training sessions by{" "}
+              <a href="https://www.intelliforge.tech/" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary-600 hover:underline">
+                IntelliForge AI
+              </a>
+              , share your feedback, and help us continuously improve the learning experience.
             </p>
 
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
