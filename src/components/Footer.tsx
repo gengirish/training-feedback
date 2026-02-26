@@ -29,7 +29,7 @@ export function Footer() {
               {[
                 { label: "Register", href: "/register" },
                 { label: "Give Feedback", href: "/feedback" },
-                { label: "Dashboard", href: "/admin" },
+                { label: "Learning", href: "/learning" },
               ].map((link) => (
                 <li key={link.href}>
                   <a href={link.href} className="text-sm transition-colors hover:text-primary-600" style={{ color: "var(--muted)" }}>

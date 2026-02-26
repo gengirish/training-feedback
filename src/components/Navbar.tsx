@@ -12,6 +12,7 @@ const navLinks = [
   { href: "/register", label: "Register" },
   { href: "/feedback", label: "Feedback" },
   { href: "/dashboard", label: "My Learning" },
+  { href: "/learning", label: "Learning" },
 ];
 
 export function Navbar() {
