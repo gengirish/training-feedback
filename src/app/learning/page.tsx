@@ -61,7 +61,7 @@ export default function LearningPage() {
           <p className="section-subtitle">Training videos and setup guides — sign in required to view</p>
 
           {/* Setup Guides */}
-          <div className="mt-12">
+          <div className="mt-12 space-y-4">
             <h2 className="mb-4 text-lg font-semibold" style={{ color: "var(--foreground)" }}>Setup Guides</h2>
             <motion.article
               initial={{ opacity: 0, y: 20 }}
@@ -90,6 +90,42 @@ export default function LearningPage() {
                     </p>
                     <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600">
                       Read guide on Codecademy
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+              </a>
+            </motion.article>
+
+            <motion.article
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="glass-card overflow-hidden"
+            >
+              <a
+                href="https://zenn.dev/neotechpark/articles/578723a5457e76"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-6 transition-colors hover:bg-primary-50/30 dark:hover:bg-primary-900/10 sm:p-8"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-900/30">
+                    <svg className="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
+                      Anti Gravity Explained: Google&apos;s Agent-First Development Platform
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                      Deep dive into agent-first development: the three surfaces (Agent Manager, Editor, Browser), artifacts system, context files, rules/workflows/skills, MCP servers, and building your first project with Anti Gravity.
+                    </p>
+                    <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600">
+                      Read on Zenn
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                       </svg>
