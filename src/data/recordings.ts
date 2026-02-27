@@ -35,6 +35,30 @@ export const recordings: Recording[] = [
     date: "2026-02-26",
     topics: ["Training", "IntelliForge AI"],
   },
+  {
+    id: "3",
+    sessionName: "IntelliForge AI Training",
+    title: "Training Video 3",
+    description:
+      "Continue your learning journey with this additional IntelliForge AI training session.",
+    duration: "",
+    videoUrl: "https://www.youtube.com/embed/GaFFNELfOyo",
+    thumbnailUrl: "https://img.youtube.com/vi/GaFFNELfOyo/maxresdefault.jpg",
+    date: "2026-02-27",
+    topics: ["Training", "IntelliForge AI"],
+  },
+  {
+    id: "4",
+    sessionName: "IntelliForge AI Training",
+    title: "Training Video 4",
+    description:
+      "Deepen your understanding with another practical IntelliForge AI learning session.",
+    duration: "",
+    videoUrl: "https://www.youtube.com/embed/2ZKQKWQmSGA",
+    thumbnailUrl: "https://img.youtube.com/vi/2ZKQKWQmSGA/maxresdefault.jpg",
+    date: "2026-02-27",
+    topics: ["Training", "IntelliForge AI"],
+  },
 ];
 
 export function getRecordingsForSession(sessionName: string): Recording[] {
