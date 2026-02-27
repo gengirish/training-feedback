@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { motion } from "framer-motion";
@@ -25,7 +26,7 @@ interface Feedback {
   created_at: string;
 }
 
-type Tab = "recordings" | "registrations" | "feedback";
+type Tab = "recordings" | "guides" | "registrations" | "feedback";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -34,6 +35,8 @@ export default function DashboardPage() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<Recording | null>(null);
+  const [generatingCertificateFor, setGeneratingCertificateFor] = useState<string | null>(null);
+  const [certificateError, setCertificateError] = useState("");
 
   const mySessionNames = registrations.map((r) => r.training_session);
   const myRecordings = recordings.filter((r) => mySessionNames.includes(r.sessionName));
@@ -59,6 +62,43 @@ export default function DashboardPage() {
   useEffect(() => {
     if (session) fetchMyData();
   }, [session, fetchMyData]);
+
+  const handleGenerateCertificate = async (trainingSession: string) => {
+    setCertificateError("");
+    setGeneratingCertificateFor(trainingSession);
+    try {
+      const response = await fetch("/api/learner/certificate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ training_session: trainingSession }),
+      });
+
+      if (!response.ok) {
+        let message = "Failed to generate certificate";
+        try {
+          const payload = (await response.json()) as { error?: string };
+          message = payload.error || message;
+        } catch {
+          // Keep generic message when non-JSON response is returned.
+        }
+        throw new Error(message);
+      }
+
+      const pdfBlob = await response.blob();
+      const objectUrl = URL.createObjectURL(pdfBlob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `certificate-${trainingSession.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      setCertificateError(err instanceof Error ? err.message : "Unable to generate certificate");
+    } finally {
+      setGeneratingCertificateFor(null);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -105,7 +145,8 @@ export default function DashboardPage() {
   }
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: "recordings", label: "Recorded Sessions", count: myRecordings.length > 0 ? myRecordings.length : allRecordings.length },
+    { id: "recordings", label: "Videos", count: myRecordings.length > 0 ? myRecordings.length : allRecordings.length },
+    { id: "guides", label: "Guides" },
     { id: "registrations", label: "My Registrations", count: registrations.length },
     { id: "feedback", label: "My Feedback", count: feedbacks.length },
   ];
@@ -118,7 +159,7 @@ export default function DashboardPage() {
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               {session.user?.image && (
-                <img src={session.user.image} alt="" className="h-14 w-14 rounded-full ring-2 ring-primary-500/30 ring-offset-2" style={{ ringOffsetColor: "var(--background)" } as React.CSSProperties} referrerPolicy="no-referrer" />
+                <Image src={session.user.image} alt="" width={56} height={56} className="h-14 w-14 rounded-full ring-2 ring-primary-500/30 ring-offset-2" style={{ ringOffsetColor: "var(--background)" } as React.CSSProperties} referrerPolicy="no-referrer" />
               )}
               <div>
                 <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
@@ -185,7 +226,16 @@ export default function DashboardPage() {
                   onCloseVideo={() => setActiveVideo(null)}
                 />
               )}
-              {activeTab === "registrations" && <RegistrationsTab registrations={registrations} />}
+              {activeTab === "guides" && <GuidesTab />}
+              {activeTab === "registrations" && (
+                <RegistrationsTab
+                  registrations={registrations}
+                  completedSessions={new Set(feedbacks.map((f) => f.training_session))}
+                  generatingCertificateFor={generatingCertificateFor}
+                  onGenerateCertificate={handleGenerateCertificate}
+                  certificateError={certificateError}
+                />
+              )}
               {activeTab === "feedback" && <FeedbackTab feedbacks={feedbacks} />}
             </>
           )}
@@ -293,10 +343,12 @@ function RecordingsTab({
                 {/* Thumbnail */}
                 <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-primary-600 to-accent-purple">
                   {rec.thumbnailUrl ? (
-                    <img
+                    <Image
                       src={rec.thumbnailUrl}
                       alt=""
-                      className="h-full w-full object-cover"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 33vw"
                     />
                   ) : null}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -340,7 +392,79 @@ function RecordingsTab({
   );
 }
 
-function RegistrationsTab({ registrations }: { registrations: Registration[] }) {
+function GuidesTab() {
+  const guides = [
+    {
+      title: "How to Set Up and Use Google Antigravity",
+      description: "Step-by-step guide to install Google Antigravity on your laptop or system. Learn how to configure the Agent Manager, choose development modes, and build your first project using agent-driven development.",
+      href: "https://www.codecademy.com/article/how-to-set-up-and-use-google-antigravity",
+      label: "Read guide on Codecademy",
+    },
+    {
+      title: "Anti Gravity Explained: Google's Agent-First Development Platform",
+      description: "Deep dive into agent-first development: the three surfaces (Agent Manager, Editor, Browser), artifacts system, context files, rules/workflows/skills, MCP servers, and building your first project with Anti Gravity.",
+      href: "https://zenn.dev/neotechpark/articles/578723a5457e76",
+      label: "Read on Zenn",
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {guides.map((guide, i) => (
+        <motion.article
+          key={guide.href}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.1 }}
+          className="glass-card overflow-hidden"
+        >
+          <a
+            href={guide.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block p-6 transition-colors hover:bg-primary-50/30 dark:hover:bg-primary-900/10 sm:p-8"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-900/30">
+                <svg className="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
+                  {guide.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                  {guide.description}
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600">
+                  {guide.label}
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </a>
+        </motion.article>
+      ))}
+    </div>
+  );
+}
+
+function RegistrationsTab({
+  registrations,
+  completedSessions,
+  generatingCertificateFor,
+  onGenerateCertificate,
+  certificateError,
+}: {
+  registrations: Registration[];
+  completedSessions: Set<string>;
+  generatingCertificateFor: string | null;
+  onGenerateCertificate: (trainingSession: string) => Promise<void>;
+  certificateError: string;
+}) {
   if (registrations.length === 0) {
     return (
       <div className="glass-card py-16 text-center">
@@ -357,6 +481,11 @@ function RegistrationsTab({ registrations }: { registrations: Registration[] }) 
 
   return (
     <div className="space-y-3">
+      {certificateError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+          {certificateError}
+        </div>
+      ) : null}
       {registrations.map((reg, i) => (
         <motion.div
           key={reg.id}
@@ -378,9 +507,28 @@ function RegistrationsTab({ registrations }: { registrations: Registration[] }) 
               </p>
             </div>
           </div>
-          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-            Enrolled
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+              Enrolled
+            </span>
+            <button
+              type="button"
+              onClick={() => onGenerateCertificate(reg.training_session)}
+              disabled={!completedSessions.has(reg.training_session) || generatingCertificateFor === reg.training_session}
+              className="rounded-lg border px-3 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              style={{
+                borderColor: "var(--card-border)",
+                color: "var(--foreground)",
+              }}
+              title={
+                completedSessions.has(reg.training_session)
+                  ? "Generate your certificate"
+                  : "Submit feedback after attending to unlock certificate"
+              }
+            >
+              {generatingCertificateFor === reg.training_session ? "Generating..." : "Generate Certificate"}
+            </button>
+          </div>
         </motion.div>
       ))}
     </div>

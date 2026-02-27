@@ -105,8 +105,39 @@ export function getParticipantsByEmail(email: string) {
   return getDb().prepare("SELECT * FROM participants WHERE email = ? ORDER BY created_at DESC").all(email);
 }
 
+export function hasRegisteredForSession(email: string, trainingSession: string): boolean {
+  const row = getDb().prepare("SELECT 1 FROM participants WHERE email = ? AND training_session = ? LIMIT 1").get(email, trainingSession);
+  return !!row;
+}
+
 export function getFeedbacksByEmail(email: string) {
   return getDb().prepare("SELECT * FROM feedback WHERE participant_email = ? ORDER BY created_at DESC").all(email);
+}
+
+export interface FeedbackRecord {
+  id: number;
+  participant_name: string;
+  participant_email: string;
+  training_session: string;
+  overall_rating: number;
+  content_rating: number;
+  instructor_rating: number;
+  pace_rating: string;
+  most_valuable: string | null;
+  least_valuable: string | null;
+  improvement_suggestions: string | null;
+  would_recommend: string;
+  additional_comments: string | null;
+  created_at: string;
+}
+
+export function getLatestFeedbackByEmailAndSession(email: string, trainingSession: string): FeedbackRecord | null {
+  const row = getDb()
+    .prepare(
+      "SELECT * FROM feedback WHERE participant_email = ? AND training_session = ? ORDER BY created_at DESC LIMIT 1"
+    )
+    .get(email, trainingSession);
+  return (row as FeedbackRecord | undefined) ?? null;
 }
 
 export function getStats() {
