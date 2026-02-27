@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession, signIn, signOut } from "next-auth/react";
@@ -131,7 +132,7 @@ export default function RegisterPage() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       {session.user?.image && (
-                        <img src={session.user.image} alt="" className="h-10 w-10 rounded-full" referrerPolicy="no-referrer" />
+                        <Image src={session.user.image} alt="" width={40} height={40} className="h-10 w-10 rounded-full" referrerPolicy="no-referrer" />
                       )}
                       <div>
                         <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addFeedback, getFeedbacks } from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { addFeedback, getFeedbacks, hasRegisteredForSession } from "@/lib/db";
 import { isAdminRequest } from "@/lib/admin";
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession();
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Sign in required to submit feedback" }, { status: 401 });
+    }
+
     const body = await request.json();
 
     const { participant_name, participant_email, training_session, overall_rating, content_rating, instructor_rating, pace_rating, would_recommend } = body;
@@ -12,6 +18,14 @@ export async function POST(request: NextRequest) {
         { error: "All required fields must be filled" },
         { status: 400 }
       );
+    }
+
+    if (participant_email !== session.user.email) {
+      return NextResponse.json({ error: "Email must match your signed-in account" }, { status: 403 });
+    }
+
+    if (!hasRegisteredForSession(session.user.email, training_session)) {
+      return NextResponse.json({ error: "You can only submit feedback for sessions you have registered for" }, { status: 403 });
     }
 
     addFeedback({

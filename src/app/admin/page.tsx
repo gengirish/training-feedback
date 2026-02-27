@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
@@ -104,7 +105,7 @@ export default function AdminPage() {
             <p className="mt-3" style={{ color: "var(--muted)" }}>
               The admin dashboard is only available to authorized administrators.
             </p>
-            <a href="/" className="btn-primary mt-8 inline-flex">Go to Home</a>
+            <Link href="/" className="btn-primary mt-8 inline-flex">Go to Home</Link>
           </motion.div>
         </div>
       </div>

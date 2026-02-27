@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -11,8 +12,7 @@ const navLinks = [
   { href: "/", label: "Home" },
   { href: "/register", label: "Register" },
   { href: "/feedback", label: "Feedback" },
-  { href: "/dashboard", label: "My Learning" },
-  { href: "/learning", label: "Learning" },
+  { href: "/dashboard", label: "Learning" },
 ];
 
 export function Navbar() {
@@ -48,7 +48,7 @@ export function Navbar() {
               IntelliForge AI
             </span>
             <span className="text-[10px] font-medium leading-tight" style={{ color: "var(--muted)" }}>
-              Training Portal
+              Learning
             </span>
           </div>
         </Link>
@@ -118,7 +118,7 @@ export function Navbar() {
                 className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/30"
               >
                 {session.user?.image ? (
-                  <img src={session.user.image} alt="" className="h-8 w-8 rounded-full ring-2 ring-primary-500/20" referrerPolicy="no-referrer" />
+                  <Image src={session.user.image} alt="" width={32} height={32} className="h-8 w-8 rounded-full ring-2 ring-primary-500/20" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
                     {session.user?.name?.charAt(0) || "U"}

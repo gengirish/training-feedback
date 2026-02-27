@@ -13,7 +13,7 @@ export function Footer() {
               </div>
               <div>
                 <p className="text-sm font-bold" style={{ color: "var(--foreground)" }}>IntelliForge AI</p>
-                <p className="text-xs" style={{ color: "var(--muted)" }}>Training Feedback Portal</p>
+                <p className="text-xs" style={{ color: "var(--muted)" }}>Learning Platform</p>
               </div>
             </div>
             <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
@@ -29,7 +29,7 @@ export function Footer() {
               {[
                 { label: "Register", href: "/register" },
                 { label: "Give Feedback", href: "/feedback" },
-                { label: "Learning", href: "/learning" },
+                { label: "Learning", href: "/dashboard" },
               ].map((link) => (
                 <li key={link.href}>
                   <a href={link.href} className="text-sm transition-colors hover:text-primary-600" style={{ color: "var(--muted)" }}>
