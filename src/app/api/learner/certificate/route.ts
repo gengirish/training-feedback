@@ -8,6 +8,7 @@ import {
   incrementCertificateDownload,
   trackEvent,
 } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const CERTIFICATE_API_URL = "https://markdown-to-pdf-six.vercel.app/api/certificate/n8n";
 
@@ -28,6 +29,14 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+    }
+
+    const rl = checkRateLimit(`cert:${session.user.email}`, 5, 60);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Too many requests. Try again in ${rl.resetInSeconds}s.` },
+        { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } },
+      );
     }
 
     const certificateApiKey = process.env.CERT_SERVICE_API_KEY || process.env.CERT_API_KEY;

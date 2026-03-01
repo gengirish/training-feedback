@@ -210,6 +210,24 @@ export async function getCertificateByPublicId(certificateId: string) {
   });
 }
 
+export async function getAllCertificates() {
+  return prisma.certificate_history.findMany({
+    select: {
+      id: true,
+      certificate_id: true,
+      user_email: true,
+      user_name: true,
+      training_session: true,
+      completion_date: true,
+      instructor_name: true,
+      filename: true,
+      download_count: true,
+      generated_at: true,
+    },
+    orderBy: { generated_at: "desc" },
+  });
+}
+
 export async function trackEvent(
   userEmail: string,
   eventName: string,

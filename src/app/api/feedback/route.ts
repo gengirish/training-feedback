@@ -2,12 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { addFeedback, getFeedbacks, hasRegisteredForSession, trackEvent } from "@/lib/db";
 import { isAdminRequest } from "@/lib/admin";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Sign in required to submit feedback" }, { status: 401 });
+    }
+
+    const rl = checkRateLimit(`feedback:${session.user.email}`, 10, 60);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Too many submissions. Try again in ${rl.resetInSeconds}s.` },
+        { status: 429, headers: { "Retry-After": String(rl.resetInSeconds) } },
+      );
     }
 
     const body = await request.json();

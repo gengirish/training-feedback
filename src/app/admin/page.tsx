@@ -54,7 +54,18 @@ interface FunnelStats {
   videoOpens: number;
 }
 
-type Tab = "overview" | "participants" | "feedback" | "funnel";
+interface CertAudit {
+  id: number;
+  certificate_id: string;
+  user_email: string;
+  user_name: string;
+  training_session: string;
+  completion_date: string;
+  download_count: number;
+  generated_at: string;
+}
+
+type Tab = "overview" | "participants" | "feedback" | "funnel" | "certificates";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -63,6 +74,7 @@ export default function AdminPage() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [funnel, setFunnel] = useState<FunnelStats | null>(null);
+  const [certAudits, setCertAudits] = useState<CertAudit[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = session?.user?.isAdmin === true;
@@ -70,16 +82,18 @@ export default function AdminPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsRes, participantsRes, feedbacksRes, funnelRes] = await Promise.all([
+      const [statsRes, participantsRes, feedbacksRes, funnelRes, certsRes] = await Promise.all([
         fetch("/api/stats"),
         fetch("/api/participants"),
         fetch("/api/feedback"),
         fetch("/api/admin/funnel"),
+        fetch("/api/admin/certificates"),
       ]);
       setStats(await statsRes.json());
       setParticipants(await participantsRes.json());
       setFeedbacks(await feedbacksRes.json());
       if (funnelRes.ok) setFunnel(await funnelRes.json());
+      if (certsRes.ok) setCertAudits(await certsRes.json());
     } catch (err) {
       console.error("Failed to fetch data:", err);
     } finally {
@@ -128,6 +142,7 @@ export default function AdminPage() {
     { id: "funnel", label: "Funnel" },
     { id: "participants", label: "Participants" },
     { id: "feedback", label: "Feedback" },
+    { id: "certificates", label: "Certificates" },
   ];
 
   return (
@@ -184,6 +199,7 @@ export default function AdminPage() {
               {activeTab === "funnel" && <FunnelTab funnel={funnel} />}
               {activeTab === "participants" && <ParticipantsTab participants={participants} />}
               {activeTab === "feedback" && <FeedbackTab feedbacks={feedbacks} />}
+              {activeTab === "certificates" && <CertificatesTab certificates={certAudits} />}
             </>
           )}
         </motion.div>
@@ -346,6 +362,99 @@ function FunnelTab({ funnel }: { funnel: FunnelStats | null }) {
             </motion.div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function CertificatesTab({ certificates }: { certificates: CertAudit[] }) {
+  if (certificates.length === 0) {
+    return (
+      <div className="glass-card py-16 text-center">
+        <p className="text-lg font-medium" style={{ color: "var(--muted)" }}>No certificates generated yet</p>
+        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+          Certificate audit logs will appear here as learners generate certificates.
+        </p>
+      </div>
+    );
+  }
+
+  const totalDownloads = certificates.reduce((sum, c) => sum + c.download_count, 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5">
+          <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>Total Certificates</p>
+          <p className="mt-1 text-2xl font-bold" style={{ color: "var(--foreground)" }}>{certificates.length}</p>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card p-5">
+          <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>Total Downloads</p>
+          <p className="mt-1 text-2xl font-bold text-primary-600">{totalDownloads}</p>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-5">
+          <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>Unique Learners</p>
+          <p className="mt-1 text-2xl font-bold text-accent-green">
+            {new Set(certificates.map((c) => c.user_email)).size}
+          </p>
+        </motion.div>
+      </div>
+
+      <div className="glass-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--card-border)" }}>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--muted)" }}>Learner</th>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--muted)" }}>Email</th>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--muted)" }}>Session</th>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--muted)" }}>Generated</th>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--muted)" }}>Downloads</th>
+                <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--muted)" }}>Verify</th>
+              </tr>
+            </thead>
+            <tbody>
+              {certificates.map((c, i) => (
+                <motion.tr
+                  key={c.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: i * 0.03 }}
+                  style={{ borderBottom: "1px solid var(--card-border)" }}
+                  className="hover:bg-primary-50/50 dark:hover:bg-primary-900/10 transition-colors"
+                >
+                  <td className="whitespace-nowrap px-4 py-3 font-medium" style={{ color: "var(--foreground)" }}>
+                    {c.user_name}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--muted)" }}>
+                    {c.user_email}
+                  </td>
+                  <td className="px-4 py-3" style={{ color: "var(--muted)" }}>
+                    <span className="inline-block max-w-[200px] truncate">{c.training_session}</span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs" style={{ color: "var(--muted)" }}>
+                    {new Date(c.generated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-center">
+                    <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-400">
+                      {c.download_count}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <a
+                      href={`/verify/${c.certificate_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-primary-600 hover:underline"
+                    >
+                      View
+                    </a>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
