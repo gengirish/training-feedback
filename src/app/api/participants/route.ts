@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    addParticipant({
+    await addParticipant({
       full_name: body.full_name,
       email: body.email,
       phone: body.phone || null,
@@ -38,7 +38,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
   try {
-    const participants = getParticipants();
+    const participants = await getParticipants();
     return NextResponse.json(participants);
   } catch (error) {
     console.error("Fetch error:", error);

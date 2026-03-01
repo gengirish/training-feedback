@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model participants {
+  id               Int      @id @default(autoincrement())
+  full_name        String
+  email            String
+  phone            String?
+  organization     String?
+  job_title        String?
+  experience_level String?
+  training_session String
+  expectations     String?
+  referral_source  String?
+  created_at       DateTime @default(now())
+}
+
+model feedback {
+  id                      Int      @id @default(autoincrement())
+  participant_name        String
+  participant_email       String
+  training_session        String
+  overall_rating          Int
+  content_rating          Int
+  instructor_rating       Int
+  pace_rating             String
+  most_valuable           String?
+  least_valuable          String?
+  improvement_suggestions String?
+  would_recommend         String
+  additional_comments     String?
+  created_at              DateTime @default(now())
+}

@@ -11,8 +11,8 @@ export async function GET() {
     }
 
     const email = session.user.email;
-    const registrations = getParticipantsByEmail(email);
-    const feedbacks = getFeedbacksByEmail(email);
+    const registrations = await getParticipantsByEmail(email);
+    const feedbacks = await getFeedbacksByEmail(email);
 
     return NextResponse.json({ registrations, feedbacks });
   } catch (error) {

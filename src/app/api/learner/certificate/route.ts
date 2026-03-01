@@ -4,7 +4,7 @@ import { getLatestFeedbackByEmailAndSession, hasRegisteredForSession } from "@/l
 
 const CERTIFICATE_API_URL = "https://markdown-to-pdf-six.vercel.app/api/certificate/n8n";
 
-function toYyyyMmDd(value: string): string {
+function toYyyyMmDd(value: string | Date): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return new Date().toISOString().slice(0, 10);
@@ -36,11 +36,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "training_session is required" }, { status: 400 });
     }
 
-    if (!hasRegisteredForSession(session.user.email, trainingSession)) {
+    if (!(await hasRegisteredForSession(session.user.email, trainingSession))) {
       return NextResponse.json({ error: "You are not registered for this session" }, { status: 403 });
     }
 
-    const feedback = getLatestFeedbackByEmailAndSession(session.user.email, trainingSession);
+    const feedback = await getLatestFeedbackByEmailAndSession(session.user.email, trainingSession);
     if (!feedback) {
       return NextResponse.json(
         { error: "Certificate is available after session completion and feedback submission" },

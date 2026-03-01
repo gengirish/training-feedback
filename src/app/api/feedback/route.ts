@@ -24,11 +24,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email must match your signed-in account" }, { status: 403 });
     }
 
-    if (!hasRegisteredForSession(session.user.email, training_session)) {
+    if (!(await hasRegisteredForSession(session.user.email, training_session))) {
       return NextResponse.json({ error: "You can only submit feedback for sessions you have registered for" }, { status: 403 });
     }
 
-    addFeedback({
+    await addFeedback({
       participant_name: body.participant_name,
       participant_email: body.participant_email,
       training_session: body.training_session,
@@ -55,7 +55,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
   try {
-    const feedbacks = getFeedbacks();
+    const feedbacks = await getFeedbacks();
     return NextResponse.json(feedbacks);
   } catch (error) {
     console.error("Fetch error:", error);

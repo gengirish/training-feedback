@@ -1,78 +1,32 @@
-import Database from "better-sqlite3";
-import path from "path";
-import os from "os";
+import { prisma } from "./prisma";
 
-const isVercel = process.env.VERCEL === "1";
-const DB_PATH = isVercel
-  ? path.join(os.tmpdir(), "training-feedback.db")
-  : path.join(process.cwd(), "training-feedback.db");
-
-let db: Database.Database;
-
-function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma("journal_mode = WAL");
-    db.pragma("foreign_keys = ON");
-    initTables();
-  }
-  return db;
-}
-
-function initTables() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS participants (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      full_name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      phone TEXT,
-      organization TEXT,
-      job_title TEXT,
-      experience_level TEXT,
-      training_session TEXT NOT NULL,
-      expectations TEXT,
-      referral_source TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS feedback (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      participant_name TEXT NOT NULL,
-      participant_email TEXT NOT NULL,
-      training_session TEXT NOT NULL,
-      overall_rating INTEGER NOT NULL CHECK(overall_rating BETWEEN 1 AND 5),
-      content_rating INTEGER NOT NULL CHECK(content_rating BETWEEN 1 AND 5),
-      instructor_rating INTEGER NOT NULL CHECK(instructor_rating BETWEEN 1 AND 5),
-      pace_rating TEXT NOT NULL,
-      most_valuable TEXT,
-      least_valuable TEXT,
-      improvement_suggestions TEXT,
-      would_recommend TEXT NOT NULL,
-      additional_comments TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-}
-
-export function addParticipant(data: {
+export async function addParticipant(data: {
   full_name: string;
   email: string;
-  phone?: string;
-  organization?: string;
-  job_title?: string;
-  experience_level?: string;
+  phone?: string | null;
+  organization?: string | null;
+  job_title?: string | null;
+  experience_level?: string | null;
   training_session: string;
-  expectations?: string;
-  referral_source?: string;
+  expectations?: string | null;
+  referral_source?: string | null;
 }) {
-  const stmt = getDb().prepare(`
-    INSERT INTO participants (full_name, email, phone, organization, job_title, experience_level, training_session, expectations, referral_source)
-    VALUES (@full_name, @email, @phone, @organization, @job_title, @experience_level, @training_session, @expectations, @referral_source)
-  `);
-  return stmt.run(data);
+  return prisma.participants.create({
+    data: {
+      full_name: data.full_name,
+      email: data.email,
+      phone: data.phone ?? null,
+      organization: data.organization ?? null,
+      job_title: data.job_title ?? null,
+      experience_level: data.experience_level ?? null,
+      training_session: data.training_session,
+      expectations: data.expectations ?? null,
+      referral_source: data.referral_source ?? null,
+    },
+  });
 }
 
-export function addFeedback(data: {
+export async function addFeedback(data: {
   participant_name: string;
   participant_email: string;
   training_session: string;
@@ -80,38 +34,72 @@ export function addFeedback(data: {
   content_rating: number;
   instructor_rating: number;
   pace_rating: string;
-  most_valuable?: string;
-  least_valuable?: string;
-  improvement_suggestions?: string;
+  most_valuable?: string | null;
+  least_valuable?: string | null;
+  improvement_suggestions?: string | null;
   would_recommend: string;
-  additional_comments?: string;
+  additional_comments?: string | null;
 }) {
-  const stmt = getDb().prepare(`
-    INSERT INTO feedback (participant_name, participant_email, training_session, overall_rating, content_rating, instructor_rating, pace_rating, most_valuable, least_valuable, improvement_suggestions, would_recommend, additional_comments)
-    VALUES (@participant_name, @participant_email, @training_session, @overall_rating, @content_rating, @instructor_rating, @pace_rating, @most_valuable, @least_valuable, @improvement_suggestions, @would_recommend, @additional_comments)
-  `);
-  return stmt.run(data);
+  return prisma.feedback.create({
+    data: {
+      participant_name: data.participant_name,
+      participant_email: data.participant_email,
+      training_session: data.training_session,
+      overall_rating: data.overall_rating,
+      content_rating: data.content_rating,
+      instructor_rating: data.instructor_rating,
+      pace_rating: data.pace_rating,
+      most_valuable: data.most_valuable ?? null,
+      least_valuable: data.least_valuable ?? null,
+      improvement_suggestions: data.improvement_suggestions ?? null,
+      would_recommend: data.would_recommend,
+      additional_comments: data.additional_comments ?? null,
+    },
+  });
 }
 
-export function getParticipants() {
-  return getDb().prepare("SELECT * FROM participants ORDER BY created_at DESC").all();
+export async function getParticipants() {
+  return prisma.participants.findMany({
+    orderBy: {
+      created_at: "desc",
+    },
+  });
 }
 
-export function getFeedbacks() {
-  return getDb().prepare("SELECT * FROM feedback ORDER BY created_at DESC").all();
+export async function getFeedbacks() {
+  return prisma.feedback.findMany({
+    orderBy: {
+      created_at: "desc",
+    },
+  });
 }
 
-export function getParticipantsByEmail(email: string) {
-  return getDb().prepare("SELECT * FROM participants WHERE email = ? ORDER BY created_at DESC").all(email);
+export async function getParticipantsByEmail(email: string) {
+  return prisma.participants.findMany({
+    where: { email },
+    orderBy: {
+      created_at: "desc",
+    },
+  });
 }
 
-export function hasRegisteredForSession(email: string, trainingSession: string): boolean {
-  const row = getDb().prepare("SELECT 1 FROM participants WHERE email = ? AND training_session = ? LIMIT 1").get(email, trainingSession);
-  return !!row;
+export async function hasRegisteredForSession(email: string, trainingSession: string): Promise<boolean> {
+  const rowCount = await prisma.participants.count({
+    where: {
+      email,
+      training_session: trainingSession,
+    },
+  });
+  return rowCount > 0;
 }
 
-export function getFeedbacksByEmail(email: string) {
-  return getDb().prepare("SELECT * FROM feedback WHERE participant_email = ? ORDER BY created_at DESC").all(email);
+export async function getFeedbacksByEmail(email: string) {
+  return prisma.feedback.findMany({
+    where: { participant_email: email },
+    orderBy: {
+      created_at: "desc",
+    },
+  });
 }
 
 export interface FeedbackRecord {
@@ -128,32 +116,41 @@ export interface FeedbackRecord {
   improvement_suggestions: string | null;
   would_recommend: string;
   additional_comments: string | null;
-  created_at: string;
+  created_at: Date;
 }
 
-export function getLatestFeedbackByEmailAndSession(email: string, trainingSession: string): FeedbackRecord | null {
-  const row = getDb()
-    .prepare(
-      "SELECT * FROM feedback WHERE participant_email = ? AND training_session = ? ORDER BY created_at DESC LIMIT 1"
-    )
-    .get(email, trainingSession);
-  return (row as FeedbackRecord | undefined) ?? null;
+export async function getLatestFeedbackByEmailAndSession(email: string, trainingSession: string): Promise<FeedbackRecord | null> {
+  return prisma.feedback.findFirst({
+    where: {
+      participant_email: email,
+      training_session: trainingSession,
+    },
+    orderBy: {
+      created_at: "desc",
+    },
+  });
 }
 
-export function getStats() {
-  const totalParticipants = getDb().prepare("SELECT COUNT(*) as count FROM participants").get() as { count: number };
-  const totalFeedbacks = getDb().prepare("SELECT COUNT(*) as count FROM feedback").get() as { count: number };
-  const avgOverall = getDb().prepare("SELECT AVG(overall_rating) as avg FROM feedback").get() as { avg: number | null };
-  const avgContent = getDb().prepare("SELECT AVG(content_rating) as avg FROM feedback").get() as { avg: number | null };
-  const avgInstructor = getDb().prepare("SELECT AVG(instructor_rating) as avg FROM feedback").get() as { avg: number | null };
-  const recommendCount = getDb().prepare("SELECT COUNT(*) as count FROM feedback WHERE would_recommend = 'Yes'").get() as { count: number };
+export async function getStats() {
+  const [totalParticipants, totalFeedbacks, recommendCount, averages] = await Promise.all([
+    prisma.participants.count(),
+    prisma.feedback.count(),
+    prisma.feedback.count({ where: { would_recommend: "Yes" } }),
+    prisma.feedback.aggregate({
+      _avg: {
+        overall_rating: true,
+        content_rating: true,
+        instructor_rating: true,
+      },
+    }),
+  ]);
 
   return {
-    totalParticipants: totalParticipants.count,
-    totalFeedbacks: totalFeedbacks.count,
-    avgOverallRating: avgOverall.avg ? Number(avgOverall.avg.toFixed(1)) : 0,
-    avgContentRating: avgContent.avg ? Number(avgContent.avg.toFixed(1)) : 0,
-    avgInstructorRating: avgInstructor.avg ? Number(avgInstructor.avg.toFixed(1)) : 0,
-    recommendPercentage: totalFeedbacks.count > 0 ? Math.round((recommendCount.count / totalFeedbacks.count) * 100) : 0,
+    totalParticipants,
+    totalFeedbacks,
+    avgOverallRating: averages._avg.overall_rating ? Number(averages._avg.overall_rating.toFixed(1)) : 0,
+    avgContentRating: averages._avg.content_rating ? Number(averages._avg.content_rating.toFixed(1)) : 0,
+    avgInstructorRating: averages._avg.instructor_rating ? Number(averages._avg.instructor_rating.toFixed(1)) : 0,
+    recommendPercentage: totalFeedbacks > 0 ? Math.round((recommendCount / totalFeedbacks) * 100) : 0,
   };
 }
