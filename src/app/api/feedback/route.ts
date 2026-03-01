@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { addFeedback, getFeedbacks, hasRegisteredForSession } from "@/lib/db";
+import { addFeedback, getFeedbacks, hasRegisteredForSession, trackEvent } from "@/lib/db";
 import { isAdminRequest } from "@/lib/admin";
 
 export async function POST(request: NextRequest) {
@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
       improvement_suggestions: body.improvement_suggestions || null,
       would_recommend: body.would_recommend,
       additional_comments: body.additional_comments || null,
+    });
+
+    trackEvent(session.user.email, "feedback_submitted", {
+      training_session: body.training_session,
+      overall_rating: Number(body.overall_rating),
     });
 
     return NextResponse.json({ success: true, message: "Feedback submitted successfully!" });

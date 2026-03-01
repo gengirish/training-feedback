@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { getLatestFeedbackByEmailAndSession, hasRegisteredForSession } from "@/lib/db";
+import { getLatestFeedbackByEmailAndSession, hasRegisteredForSession, trackEvent } from "@/lib/db";
 
 const CERTIFICATE_API_URL = "https://markdown-to-pdf-six.vercel.app/api/certificate/n8n";
 
@@ -81,6 +81,10 @@ export async function POST(request: NextRequest) {
     if (!providerPayload.success || !providerPayload.pdf_base64) {
       return NextResponse.json({ error: "Certificate provider returned invalid payload" }, { status: 502 });
     }
+
+    trackEvent(session.user.email, "certificate_generated", {
+      training_session: trainingSession,
+    });
 
     const pdfBuffer = Buffer.from(providerPayload.pdf_base64, "base64");
     const fileName = providerPayload.filename || `certificate-${toSafeFilePart(trainingSession) || "training"}.pdf`;

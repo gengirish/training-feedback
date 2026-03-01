@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addParticipant, getParticipants } from "@/lib/db";
+import { addParticipant, getParticipants, trackEvent } from "@/lib/db";
 import { isAdminRequest } from "@/lib/admin";
 
 export async function POST(request: NextRequest) {
@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
       expectations: body.expectations || null,
       referral_source: body.referral_source || null,
     });
+
+    trackEvent(email, "registration_created", { training_session });
 
     return NextResponse.json({ success: true, message: "Registration successful!" });
   } catch (error) {

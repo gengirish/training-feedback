@@ -37,3 +37,15 @@ model feedback {
   additional_comments     String?
   created_at              DateTime @default(now())
 }
+
+model events {
+  id         Int      @id @default(autoincrement())
+  user_email String
+  event_name String
+  metadata   String?
+  created_at DateTime @default(now())
+
+  @@index([user_email])
+  @@index([event_name])
+  @@index([created_at])
+}

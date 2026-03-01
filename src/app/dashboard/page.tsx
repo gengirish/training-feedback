@@ -27,6 +27,35 @@ interface Feedback {
 }
 
 type Tab = "recordings" | "guides" | "registrations" | "feedback";
+const validTabs: Tab[] = ["recordings", "guides", "registrations", "feedback"];
+
+type JourneyStage = "new" | "registered" | "feedback_pending" | "certificate_ready" | "complete";
+
+function deriveJourneyStage(registrations: Registration[], feedbacks: Feedback[]): JourneyStage {
+  if (registrations.length === 0) return "new";
+  const feedbackSessions = new Set(feedbacks.map((f) => f.training_session));
+  const allHaveFeedback = registrations.every((r) => feedbackSessions.has(r.training_session));
+  const someHaveFeedback = registrations.some((r) => feedbackSessions.has(r.training_session));
+  if (allHaveFeedback) return "certificate_ready";
+  if (someHaveFeedback) return "feedback_pending";
+  return "registered";
+}
+
+function smartDefaultTab(registrations: Registration[], feedbacks: Feedback[]): Tab {
+  const stage = deriveJourneyStage(registrations, feedbacks);
+  switch (stage) {
+    case "new":
+      return "recordings";
+    case "registered":
+    case "feedback_pending":
+      return "registrations";
+    case "certificate_ready":
+    case "complete":
+      return "registrations";
+    default:
+      return "recordings";
+  }
+}
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -36,7 +65,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<Recording | null>(null);
   const [generatingCertificateFor, setGeneratingCertificateFor] = useState<string | null>(null);
-  const [certificateError, setCertificateError] = useState("");
+  const [certificateNotice, setCertificateNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const mySessionNames = registrations.map((r) => r.training_session);
   const myRecordings = recordings.filter((r) => mySessionNames.includes(r.sessionName));
@@ -63,8 +92,40 @@ export default function DashboardPage() {
     if (session) fetchMyData();
   }, [session, fetchMyData]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tabFromUrl = new URLSearchParams(window.location.search).get("tab");
+    if (tabFromUrl && validTabs.includes(tabFromUrl as Tab)) {
+      setActiveTab(tabFromUrl as Tab);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab")) return;
+    setActiveTab(smartDefaultTab(registrations, feedbacks));
+  }, [loading, registrations, feedbacks]);
+
+  useEffect(() => {
+    if (!certificateNotice) return;
+    const timer = window.setTimeout(() => {
+      setCertificateNotice(null);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [certificateNotice]);
+
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    if (typeof window === "undefined") return;
+    const currentUrl = new URL(window.location.href);
+    const params = new URLSearchParams(currentUrl.search);
+    params.set("tab", tab);
+    currentUrl.search = params.toString();
+    window.history.replaceState({}, "", currentUrl.toString());
+  };
+
   const handleGenerateCertificate = async (trainingSession: string) => {
-    setCertificateError("");
+    setCertificateNotice(null);
     setGeneratingCertificateFor(trainingSession);
     try {
       const response = await fetch("/api/learner/certificate", {
@@ -93,8 +154,15 @@ export default function DashboardPage() {
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(objectUrl);
+      setCertificateNotice({
+        type: "success",
+        message: `Certificate download started for ${trainingSession}.`,
+      });
     } catch (err) {
-      setCertificateError(err instanceof Error ? err.message : "Unable to generate certificate");
+      setCertificateNotice({
+        type: "error",
+        message: err instanceof Error ? err.message : "Unable to generate certificate",
+      });
     } finally {
       setGeneratingCertificateFor(null);
     }
@@ -178,12 +246,22 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Journey Strip */}
+          {!loading && (
+            <JourneyStrip
+              stage={deriveJourneyStage(registrations, feedbacks)}
+              registrationCount={registrations.length}
+              feedbackCount={feedbacks.length}
+              onNavigate={handleTabChange}
+            />
+          )}
+
           {/* Tabs */}
           <div className="mb-8 flex gap-1 overflow-x-auto rounded-xl p-1" style={{ background: "var(--input-bg)" }}>
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`relative flex-1 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${activeTab === tab.id ? "text-primary-600" : ""}`}
                 style={{ color: activeTab === tab.id ? undefined : "var(--muted)" }}
               >
@@ -206,6 +284,18 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
+
+          {certificateNotice ? (
+            <div
+              className={`mb-4 rounded-xl border p-3 text-sm ${
+                certificateNotice.type === "success"
+                  ? "border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-900/20 dark:text-green-300"
+                  : "border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
+              }`}
+            >
+              {certificateNotice.message}
+            </div>
+          ) : null}
 
           {loading ? (
             <div className="flex items-center justify-center py-20">
@@ -233,7 +323,6 @@ export default function DashboardPage() {
                   completedSessions={new Set(feedbacks.map((f) => f.training_session))}
                   generatingCertificateFor={generatingCertificateFor}
                   onGenerateCertificate={handleGenerateCertificate}
-                  certificateError={certificateError}
                 />
               )}
               {activeTab === "feedback" && <FeedbackTab feedbacks={feedbacks} />}
@@ -457,13 +546,11 @@ function RegistrationsTab({
   completedSessions,
   generatingCertificateFor,
   onGenerateCertificate,
-  certificateError,
 }: {
   registrations: Registration[];
   completedSessions: Set<string>;
   generatingCertificateFor: string | null;
   onGenerateCertificate: (trainingSession: string) => Promise<void>;
-  certificateError: string;
 }) {
   if (registrations.length === 0) {
     return (
@@ -473,19 +560,40 @@ function RegistrationsTab({
         </svg>
         <p className="text-lg font-medium" style={{ color: "var(--muted)" }}>No registrations yet</p>
         <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-          <a href="/register" className="font-semibold text-primary-600 hover:underline">Register for a session</a> to get started.
+          Start by registering for your first training session.
         </p>
+        <div className="mt-5 flex items-center justify-center gap-3">
+          <a href="/register" className="btn-primary text-sm px-5 py-2.5">
+            Register for Session
+          </a>
+          <a href="/dashboard" className="btn-secondary text-sm px-5 py-2.5">
+            Explore Learning
+          </a>
+        </div>
       </div>
     );
   }
 
+  const completedCount = registrations.filter((reg) => completedSessions.has(reg.training_session)).length;
+  const pendingCount = registrations.length - completedCount;
+
   return (
     <div className="space-y-3">
-      {certificateError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
-          {certificateError}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="glass-card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>Registered</p>
+          <p className="mt-1 text-2xl font-bold" style={{ color: "var(--foreground)" }}>{registrations.length}</p>
         </div>
-      ) : null}
+        <div className="glass-card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>Feedback Done</p>
+          <p className="mt-1 text-2xl font-bold text-primary-600">{completedCount}</p>
+        </div>
+        <div className="glass-card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>Awaiting Feedback</p>
+          <p className="mt-1 text-2xl font-bold text-amber-600">{pendingCount}</p>
+        </div>
+      </div>
+
       {registrations.map((reg, i) => (
         <motion.div
           key={reg.id}
@@ -505,6 +613,25 @@ function RegistrationsTab({
               <p className="text-xs" style={{ color: "var(--muted)" }}>
                 Registered on {new Date(reg.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               </p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  1. Registered
+                </span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  completedSessions.has(reg.training_session)
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                }`}>
+                  2. {completedSessions.has(reg.training_session) ? "Feedback Submitted" : "Submit Feedback"}
+                </span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  completedSessions.has(reg.training_session)
+                    ? "bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400"
+                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                }`}>
+                  3. {completedSessions.has(reg.training_session) ? "Certificate Ready" : "Certificate Locked"}
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -522,16 +649,134 @@ function RegistrationsTab({
               }}
               title={
                 completedSessions.has(reg.training_session)
-                  ? "Generate your certificate"
+                  ? "Download your certificate"
                   : "Submit feedback after attending to unlock certificate"
               }
             >
-              {generatingCertificateFor === reg.training_session ? "Generating..." : "Generate Certificate"}
+              {generatingCertificateFor === reg.training_session
+                ? "Generating..."
+                : completedSessions.has(reg.training_session)
+                ? "Download Certificate"
+                : "Complete Feedback First"}
             </button>
           </div>
         </motion.div>
       ))}
     </div>
+  );
+}
+
+function JourneyStrip({
+  stage,
+  registrationCount,
+  feedbackCount,
+  onNavigate,
+}: {
+  stage: JourneyStage;
+  registrationCount: number;
+  feedbackCount: number;
+  onNavigate: (tab: Tab) => void;
+}) {
+  const steps: { key: JourneyStage; label: string; done: boolean }[] = [
+    { key: "registered", label: "Register", done: registrationCount > 0 },
+    { key: "feedback_pending", label: "Give Feedback", done: feedbackCount > 0 },
+    { key: "certificate_ready", label: "Get Certificate", done: stage === "complete" },
+  ];
+
+  const stageConfig: Record<JourneyStage, { heading: string; sub: string; cta: string; action: () => void }> = {
+    new: {
+      heading: "Start Your Learning Journey",
+      sub: "Register for a training session to get started with videos, feedback, and certificates.",
+      cta: "Register Now",
+      action: () => { window.location.href = "/register"; },
+    },
+    registered: {
+      heading: "You're Registered!",
+      sub: "Attend your session, then submit feedback to unlock your certificate.",
+      cta: "Submit Feedback",
+      action: () => { window.location.href = "/feedback"; },
+    },
+    feedback_pending: {
+      heading: "Almost There",
+      sub: `You have feedback for ${feedbackCount} session${feedbackCount !== 1 ? "s" : ""}. Submit feedback for remaining sessions to unlock all certificates.`,
+      cta: "Submit Feedback",
+      action: () => { window.location.href = "/feedback"; },
+    },
+    certificate_ready: {
+      heading: "Certificates Ready!",
+      sub: "All feedback submitted. Download your certificates from the registrations tab.",
+      cta: "View Certificates",
+      action: () => onNavigate("registrations"),
+    },
+    complete: {
+      heading: "All Caught Up!",
+      sub: "You've completed all sessions and downloaded your certificates.",
+      cta: "Explore Videos",
+      action: () => onNavigate("recordings"),
+    },
+  };
+
+  const config = stageConfig[stage];
+
+  const stepColors = (done: boolean) =>
+    done
+      ? "bg-green-500 text-white"
+      : "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400";
+
+  const lineColor = (done: boolean) =>
+    done
+      ? "bg-green-500"
+      : "bg-gray-200 dark:bg-gray-700";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="glass-card mb-8 overflow-hidden"
+    >
+      <div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-bold" style={{ color: "var(--foreground)" }}>
+            {config.heading}
+          </h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+            {config.sub}
+          </p>
+
+          {/* Progress Steps */}
+          <div className="mt-4 flex items-center gap-0">
+            {steps.map((step, i) => (
+              <div key={step.key} className="flex items-center">
+                <div className="flex flex-col items-center">
+                  <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${stepColors(step.done)}`}>
+                    {step.done ? (
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      i + 1
+                    )}
+                  </div>
+                  <span className="mt-1 text-[10px] font-medium whitespace-nowrap" style={{ color: "var(--muted)" }}>
+                    {step.label}
+                  </span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div className={`mx-2 h-0.5 w-8 sm:w-12 ${lineColor(step.done)} rounded-full`} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={config.action}
+          className="btn-primary shrink-0 self-start px-5 py-2.5 text-sm sm:self-center"
+        >
+          {config.cta}
+        </button>
+      </div>
+    </motion.div>
   );
 }
 

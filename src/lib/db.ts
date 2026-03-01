@@ -131,6 +131,41 @@ export async function getLatestFeedbackByEmailAndSession(email: string, training
   });
 }
 
+export async function trackEvent(
+  userEmail: string,
+  eventName: string,
+  metadata?: Record<string, unknown>,
+) {
+  try {
+    await prisma.events.create({
+      data: {
+        user_email: userEmail,
+        event_name: eventName,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+      },
+    });
+  } catch (err) {
+    console.error("trackEvent failed (non-blocking):", err);
+  }
+}
+
+export async function getEventsByEmail(email: string) {
+  return prisma.events.findMany({
+    where: { user_email: email },
+    orderBy: { created_at: "desc" },
+  });
+}
+
+export async function getFunnelStats() {
+  const [registrations, feedbacks, certificates, signIns] = await Promise.all([
+    prisma.events.count({ where: { event_name: "registration_created" } }),
+    prisma.events.count({ where: { event_name: "feedback_submitted" } }),
+    prisma.events.count({ where: { event_name: "certificate_generated" } }),
+    prisma.events.count({ where: { event_name: "sign_in" } }),
+  ]);
+  return { signIns, registrations, feedbacks, certificates };
+}
+
 export async function getStats() {
   const [totalParticipants, totalFeedbacks, recommendCount, averages] = await Promise.all([
     prisma.participants.count(),

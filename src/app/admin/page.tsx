@@ -46,7 +46,14 @@ interface Stats {
   recommendPercentage: number;
 }
 
-type Tab = "overview" | "participants" | "feedback";
+interface FunnelStats {
+  signIns: number;
+  registrations: number;
+  feedbacks: number;
+  certificates: number;
+}
+
+type Tab = "overview" | "participants" | "feedback" | "funnel";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -54,6 +61,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [funnel, setFunnel] = useState<FunnelStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const isAdmin = session?.user?.isAdmin === true;
@@ -61,14 +69,16 @@ export default function AdminPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsRes, participantsRes, feedbacksRes] = await Promise.all([
+      const [statsRes, participantsRes, feedbacksRes, funnelRes] = await Promise.all([
         fetch("/api/stats"),
         fetch("/api/participants"),
         fetch("/api/feedback"),
+        fetch("/api/admin/funnel"),
       ]);
       setStats(await statsRes.json());
       setParticipants(await participantsRes.json());
       setFeedbacks(await feedbacksRes.json());
+      if (funnelRes.ok) setFunnel(await funnelRes.json());
     } catch (err) {
       console.error("Failed to fetch data:", err);
     } finally {
@@ -114,6 +124,7 @@ export default function AdminPage() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
+    { id: "funnel", label: "Funnel" },
     { id: "participants", label: "Participants" },
     { id: "feedback", label: "Feedback" },
   ];
@@ -169,6 +180,7 @@ export default function AdminPage() {
           ) : (
             <>
               {activeTab === "overview" && stats && <OverviewTab stats={stats} />}
+              {activeTab === "funnel" && <FunnelTab funnel={funnel} />}
               {activeTab === "participants" && <ParticipantsTab participants={participants} />}
               {activeTab === "feedback" && <FeedbackTab feedbacks={feedbacks} />}
             </>
@@ -233,6 +245,105 @@ function OverviewTab({ stats }: { stats: Stats }) {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FunnelTab({ funnel }: { funnel: FunnelStats | null }) {
+  if (!funnel) {
+    return (
+      <div className="glass-card py-16 text-center">
+        <p className="text-lg font-medium" style={{ color: "var(--muted)" }}>No funnel data yet</p>
+        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+          Events will be tracked automatically as learners register, submit feedback, and generate certificates.
+        </p>
+      </div>
+    );
+  }
+
+  const stages = [
+    { label: "Registrations", value: funnel.registrations, color: "bg-blue-500" },
+    { label: "Feedback Submitted", value: funnel.feedbacks, color: "bg-amber-500" },
+    { label: "Certificates Generated", value: funnel.certificates, color: "bg-green-500" },
+  ];
+
+  const maxVal = Math.max(...stages.map((s) => s.value), 1);
+
+  return (
+    <div className="space-y-6">
+      <div className="glass-card p-6">
+        <h3 className="mb-6 text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+          Learner Journey Funnel
+        </h3>
+        <div className="space-y-5">
+          {stages.map((stage, i) => {
+            const pct = Math.round((stage.value / maxVal) * 100);
+            const dropOff = i > 0 && stages[i - 1].value > 0
+              ? Math.round(((stages[i - 1].value - stage.value) / stages[i - 1].value) * 100)
+              : null;
+            return (
+              <motion.div
+                key={stage.label}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.15 }}
+              >
+                <div className="mb-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
+                      {stage.label}
+                    </span>
+                    {dropOff !== null && dropOff > 0 && (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                        -{dropOff}% drop
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-lg font-bold" style={{ color: "var(--foreground)" }}>
+                    {stage.value}
+                  </span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full" style={{ background: "var(--input-border)" }}>
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut", delay: i * 0.15 }}
+                    className={`h-full rounded-full ${stage.color}`}
+                  />
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {stages.map((stage, i) => {
+          const conversionRate =
+            i > 0 && stages[i - 1].value > 0
+              ? Math.round((stage.value / stages[i - 1].value) * 100)
+              : 100;
+          return (
+            <motion.div
+              key={stage.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="glass-card p-5 text-center"
+            >
+              <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>
+                {i === 0 ? "Total" : `${stages[i - 1].label} →`}
+              </p>
+              <p className="mt-1 text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+                {conversionRate}%
+              </p>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                {i === 0 ? "baseline" : "conversion"}
+              </p>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );
