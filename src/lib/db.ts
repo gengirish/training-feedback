@@ -236,13 +236,14 @@ export async function getEventsByEmail(email: string) {
 }
 
 export async function getFunnelStats() {
-  const [registrations, feedbacks, certificates, signIns] = await Promise.all([
+  const [registrations, feedbacks, certificates, signIns, videoOpens] = await Promise.all([
     prisma.events.count({ where: { event_name: "registration_created" } }),
     prisma.events.count({ where: { event_name: "feedback_submitted" } }),
     prisma.events.count({ where: { event_name: "certificate_generated" } }),
     prisma.events.count({ where: { event_name: "sign_in" } }),
+    prisma.events.count({ where: { event_name: "video_opened" } }),
   ]);
-  return { signIns, registrations, feedbacks, certificates };
+  return { signIns, registrations, feedbacks, certificates, videoOpens };
 }
 
 export async function getStats() {

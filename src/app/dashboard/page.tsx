@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { motion } from "framer-motion";
 import { StarDisplay } from "@/components/StarRating";
-import { recordings, type Recording } from "@/data/recordings";
+import { recordings, allTopics, allLevels, type Recording, type Level } from "@/data/recordings";
 
 interface Registration {
   id: number;
@@ -272,6 +272,30 @@ export default function DashboardPage() {
             />
           )}
 
+          {/* Nudge Cards */}
+          {!loading && (
+            <NudgeCards
+              registrations={registrations}
+              feedbacks={feedbacks}
+              certificates={certificates}
+            />
+          )}
+
+          {/* Recommendations */}
+          {!loading && registrations.length > 0 && (
+            <RecommendationBlock
+              registrations={registrations}
+              onPlayVideo={(rec) => {
+                fetch("/api/track", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ event: "video_opened", metadata: { video_id: rec.id, title: rec.title, session: rec.sessionName, source: "recommendation" } }),
+                }).catch(() => {});
+                setActiveVideo(rec);
+              }}
+            />
+          )}
+
           {/* Tabs */}
           <div className="mb-8 flex gap-1 overflow-x-auto rounded-xl p-1" style={{ background: "var(--input-bg)" }}>
             {tabs.map((tab) => (
@@ -366,15 +390,41 @@ function RecordingsTab({
   onPlayVideo: (r: Recording) => void;
   onCloseVideo: () => void;
 }) {
-  const displayRecordings = hasRegistrations && myRecordings.length > 0 ? myRecordings : allRecordings;
+  const [filterTopic, setFilterTopic] = useState<string>("all");
+  const [filterLevel, setFilterLevel] = useState<string>("all");
+
+  const baseRecordings = hasRegistrations && myRecordings.length > 0 ? myRecordings : allRecordings;
+  const displayRecordings = baseRecordings.filter((r) => {
+    if (filterTopic !== "all" && !r.topics.includes(filterTopic)) return false;
+    if (filterLevel !== "all" && r.level !== filterLevel) return false;
+    return true;
+  });
+
   const sessionGroups = displayRecordings.reduce((acc, rec) => {
     if (!acc[rec.sessionName]) acc[rec.sessionName] = [];
     acc[rec.sessionName].push(rec);
     return acc;
   }, {} as Record<string, Recording[]>);
 
+  const handlePlay = (rec: Recording) => {
+    fetch("/api/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "video_opened", metadata: { video_id: rec.id, title: rec.title, session: rec.sessionName } }),
+    }).catch(() => {});
+    onPlayVideo(rec);
+  };
+
+  const levelColor = (level: Level) => {
+    switch (level) {
+      case "Beginner": return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+      case "Intermediate": return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+      case "Advanced": return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+    }
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Video Player Modal */}
       {activeVideo && (
         <motion.div
@@ -410,6 +460,52 @@ function RecordingsTab({
         </motion.div>
       )}
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>Topic:</span>
+          <select
+            value={filterTopic}
+            onChange={(e) => setFilterTopic(e.target.value)}
+            className="rounded-lg border px-3 py-1.5 text-xs font-medium"
+            style={{ borderColor: "var(--card-border)", background: "var(--surface)", color: "var(--foreground)" }}
+          >
+            <option value="all">All Topics</option>
+            {allTopics.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>Level:</span>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setFilterLevel("all")}
+              className={`rounded-full px-3 py-1 text-[10px] font-semibold transition-colors ${filterLevel === "all" ? "bg-primary-600 text-white" : ""}`}
+              style={filterLevel !== "all" ? { color: "var(--muted)", background: "var(--input-bg)" } : undefined}
+            >
+              All
+            </button>
+            {allLevels.map((lvl) => (
+              <button
+                key={lvl}
+                onClick={() => setFilterLevel(filterLevel === lvl ? "all" : lvl)}
+                className={`rounded-full px-3 py-1 text-[10px] font-semibold transition-colors ${filterLevel === lvl ? "bg-primary-600 text-white" : ""}`}
+                style={filterLevel !== lvl ? { color: "var(--muted)", background: "var(--input-bg)" } : undefined}
+              >
+                {lvl}
+              </button>
+            ))}
+          </div>
+        </div>
+        {(filterTopic !== "all" || filterLevel !== "all") && (
+          <button
+            onClick={() => { setFilterTopic("all"); setFilterLevel("all"); }}
+            className="text-xs font-medium text-primary-600 hover:underline"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
       {!hasRegistrations && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
           <div className="flex items-start gap-3">
@@ -426,74 +522,89 @@ function RecordingsTab({
         </div>
       )}
 
-      {Object.entries(sessionGroups).map(([sessionName, recs], gi) => (
-        <motion.div
-          key={sessionName}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: gi * 0.1 }}
-        >
-          <h3 className="mb-4 text-lg font-semibold" style={{ color: "var(--foreground)" }}>
-            {sessionName}
-          </h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recs.map((rec, i) => (
-              <motion.div
-                key={rec.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: gi * 0.1 + i * 0.05 }}
-                className="glass-card group cursor-pointer overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl"
-                onClick={() => onPlayVideo(rec)}
-              >
-                {/* Thumbnail */}
-                <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-primary-600 to-accent-purple">
-                  {rec.thumbnailUrl ? (
-                    <Image
-                      src={rec.thumbnailUrl}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                    />
-                  ) : null}
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/30 backdrop-blur-sm transition-transform group-hover:scale-110">
-                      <svg className="h-7 w-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
+      {displayRecordings.length === 0 ? (
+        <div className="glass-card py-12 text-center">
+          <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>No videos match your filters.</p>
+          <button
+            onClick={() => { setFilterTopic("all"); setFilterLevel("all"); }}
+            className="mt-2 text-sm font-medium text-primary-600 hover:underline"
+          >
+            Clear filters
+          </button>
+        </div>
+      ) : (
+        Object.entries(sessionGroups).map(([sessionName, recs], gi) => (
+          <motion.div
+            key={sessionName}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: gi * 0.1 }}
+          >
+            <h3 className="mb-4 text-lg font-semibold" style={{ color: "var(--foreground)" }}>
+              {sessionName}
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {recs.map((rec, i) => (
+                <motion.div
+                  key={rec.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: gi * 0.1 + i * 0.05 }}
+                  className="glass-card group cursor-pointer overflow-hidden transition-all hover:-translate-y-1 hover:shadow-xl"
+                  onClick={() => handlePlay(rec)}
+                >
+                  <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-primary-600 to-accent-purple">
+                    {rec.thumbnailUrl ? (
+                      <Image
+                        src={rec.thumbnailUrl}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                      />
+                    ) : null}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/30 backdrop-blur-sm transition-transform group-hover:scale-110">
+                        <svg className="h-7 w-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
                     </div>
-                  </div>
-                  {rec.duration ? (
-                    <div className="absolute bottom-2 right-2 rounded-md bg-black/70 px-2 py-0.5 text-xs font-medium text-white">
-                      {rec.duration}
-                    </div>
-                  ) : null}
-                </div>
-                {/* Info */}
-                <div className="p-4">
-                  <h4 className="text-sm font-semibold leading-snug" style={{ color: "var(--foreground)" }}>
-                    {rec.title}
-                  </h4>
-                  <p className="mt-1.5 text-xs leading-relaxed line-clamp-2" style={{ color: "var(--muted)" }}>
-                    {rec.description}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {rec.topics.slice(0, 3).map((t) => (
-                      <span key={t} className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-400">
-                        {t}
+                    <div className="absolute top-2 left-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${levelColor(rec.level)}`}>
+                        {rec.level}
                       </span>
-                    ))}
+                    </div>
+                    {rec.duration ? (
+                      <div className="absolute bottom-2 right-2 rounded-md bg-black/70 px-2 py-0.5 text-xs font-medium text-white">
+                        {rec.duration}
+                      </div>
+                    ) : null}
                   </div>
-                  <p className="mt-2 text-[10px]" style={{ color: "var(--muted)" }}>
-                    {new Date(rec.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      ))}
+                  <div className="p-4">
+                    <h4 className="text-sm font-semibold leading-snug" style={{ color: "var(--foreground)" }}>
+                      {rec.title}
+                    </h4>
+                    <p className="mt-1.5 text-xs leading-relaxed line-clamp-2" style={{ color: "var(--muted)" }}>
+                      {rec.description}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {rec.topics.map((t) => (
+                        <span key={t} className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-400">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[10px]" style={{ color: "var(--muted)" }}>
+                      {new Date(rec.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        ))
+      )}
     </div>
   );
 }
@@ -890,6 +1001,160 @@ function JourneyStrip({
         </button>
       </div>
     </motion.div>
+  );
+}
+
+function NudgeCards({
+  registrations,
+  feedbacks,
+  certificates,
+}: {
+  registrations: Registration[];
+  feedbacks: Feedback[];
+  certificates: Certificate[];
+}) {
+  const feedbackSessions = new Set(feedbacks.map((f) => f.training_session));
+  const certSessions = new Set(certificates.map((c) => c.training_session));
+  const nudges: { id: string; icon: string; text: string; cta: string; href: string; color: string }[] = [];
+
+  const sessionsWithoutFeedback = registrations.filter((r) => !feedbackSessions.has(r.training_session));
+  if (sessionsWithoutFeedback.length > 0) {
+    const daysSinceRegistration = Math.floor(
+      (Date.now() - new Date(sessionsWithoutFeedback[0].created_at).getTime()) / 86400000
+    );
+    if (daysSinceRegistration >= 1) {
+      nudges.push({
+        id: "feedback_pending",
+        icon: "feedback",
+        text: `You registered ${daysSinceRegistration} day${daysSinceRegistration !== 1 ? "s" : ""} ago for "${sessionsWithoutFeedback[0].training_session}" but haven't submitted feedback yet.`,
+        cta: "Submit Feedback",
+        href: "/feedback",
+        color: "amber",
+      });
+    }
+  }
+
+  const sessionsWithFeedbackNoCert = registrations.filter(
+    (r) => feedbackSessions.has(r.training_session) && !certSessions.has(r.training_session)
+  );
+  if (sessionsWithFeedbackNoCert.length > 0) {
+    nudges.push({
+      id: "cert_ready",
+      icon: "certificate",
+      text: `Your certificate for "${sessionsWithFeedbackNoCert[0].training_session}" is ready to download!`,
+      cta: "Get Certificate",
+      href: "/dashboard?tab=registrations",
+      color: "green",
+    });
+  }
+
+  if (nudges.length === 0) return null;
+
+  const colorMap: Record<string, string> = {
+    amber: "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20",
+    green: "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20",
+  };
+  const textColorMap: Record<string, string> = {
+    amber: "text-amber-800 dark:text-amber-300",
+    green: "text-green-800 dark:text-green-300",
+  };
+
+  return (
+    <div className="mb-6 space-y-2">
+      {nudges.map((nudge) => (
+        <motion.div
+          key={nudge.id}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className={`flex items-center justify-between gap-4 rounded-xl border p-3 ${colorMap[nudge.color]}`}
+        >
+          <p className={`text-sm ${textColorMap[nudge.color]}`}>{nudge.text}</p>
+          <a
+            href={nudge.href}
+            className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold ${textColorMap[nudge.color]} transition-opacity hover:opacity-80`}
+            style={{ background: "rgba(0,0,0,0.08)" }}
+          >
+            {nudge.cta}
+          </a>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function RecommendationBlock({
+  registrations,
+  onPlayVideo,
+}: {
+  registrations: Registration[];
+  onPlayVideo: (rec: Recording) => void;
+}) {
+  const mySessionNames = new Set(registrations.map((r) => r.training_session));
+  const myTopics = new Set(
+    recordings
+      .filter((r) => mySessionNames.has(r.sessionName))
+      .flatMap((r) => r.topics)
+  );
+
+  const recommended = recordings.filter(
+    (r) => !mySessionNames.has(r.sessionName) && r.topics.some((t) => myTopics.has(t))
+  );
+
+  const notWatched = recordings.filter(
+    (r) => mySessionNames.has(r.sessionName)
+  );
+
+  const displayItems = recommended.length > 0 ? recommended : notWatched.slice(0, 2);
+  if (displayItems.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <h3 className="mb-3 text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+        {recommended.length > 0 ? "Recommended For You" : "Continue Watching"}
+      </h3>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {displayItems.map((rec) => (
+          <motion.div
+            key={rec.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass-card group w-52 shrink-0 cursor-pointer overflow-hidden transition-all hover:-translate-y-1 hover:shadow-lg"
+            onClick={() => onPlayVideo(rec)}
+          >
+            <div className="relative aspect-video overflow-hidden bg-gradient-to-br from-primary-600 to-accent-purple">
+              {rec.thumbnailUrl ? (
+                <Image
+                  src={rec.thumbnailUrl}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="208px"
+                />
+              ) : null}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/30 backdrop-blur-sm transition-transform group-hover:scale-110">
+                  <svg className="h-5 w-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div className="p-3">
+              <h4 className="text-xs font-semibold leading-snug line-clamp-1" style={{ color: "var(--foreground)" }}>
+                {rec.title}
+              </h4>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {rec.topics.slice(0, 2).map((t) => (
+                  <span key={t} className="rounded-full bg-primary-50 px-1.5 py-0.5 text-[9px] font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-400">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
   );
 }
 

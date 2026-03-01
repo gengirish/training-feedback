@@ -1,3 +1,5 @@
+export type Level = "Beginner" | "Intermediate" | "Advanced";
+
 export interface Recording {
   id: string;
   sessionName: string;
@@ -8,6 +10,7 @@ export interface Recording {
   thumbnailUrl: string;
   date: string;
   topics: string[];
+  level: Level;
 }
 
 export const recordings: Recording[] = [
@@ -21,7 +24,8 @@ export const recordings: Recording[] = [
     videoUrl: "https://www.youtube.com/embed/HKPIRY1fc5s",
     thumbnailUrl: "https://img.youtube.com/vi/HKPIRY1fc5s/maxresdefault.jpg",
     date: "2026-02-26",
-    topics: ["Training", "IntelliForge AI"],
+    topics: ["AI Fundamentals", "Prompt Engineering"],
+    level: "Beginner",
   },
   {
     id: "2",
@@ -33,7 +37,8 @@ export const recordings: Recording[] = [
     videoUrl: "https://www.youtube.com/embed/EmbKBdobcWQ",
     thumbnailUrl: "https://img.youtube.com/vi/EmbKBdobcWQ/maxresdefault.jpg",
     date: "2026-02-26",
-    topics: ["Training", "IntelliForge AI"],
+    topics: ["Agent Development", "Automation"],
+    level: "Intermediate",
   },
   {
     id: "3",
@@ -45,7 +50,8 @@ export const recordings: Recording[] = [
     videoUrl: "https://www.youtube.com/embed/GaFFNELfOyo",
     thumbnailUrl: "https://img.youtube.com/vi/GaFFNELfOyo/maxresdefault.jpg",
     date: "2026-02-27",
-    topics: ["Training", "IntelliForge AI"],
+    topics: ["AI Tools", "Workflow Design"],
+    level: "Intermediate",
   },
   {
     id: "4",
@@ -57,9 +63,13 @@ export const recordings: Recording[] = [
     videoUrl: "https://www.youtube.com/embed/2ZKQKWQmSGA",
     thumbnailUrl: "https://img.youtube.com/vi/2ZKQKWQmSGA/maxresdefault.jpg",
     date: "2026-02-27",
-    topics: ["Training", "IntelliForge AI"],
+    topics: ["Product Development", "AI Strategy"],
+    level: "Advanced",
   },
 ];
+
+export const allTopics: string[] = [...new Set(recordings.flatMap((r) => r.topics))].sort();
+export const allLevels: Level[] = ["Beginner", "Intermediate", "Advanced"];
 
 export function getRecordingsForSession(sessionName: string): Recording[] {
   return recordings.filter((r) => r.sessionName === sessionName);

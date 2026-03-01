@@ -51,6 +51,7 @@ interface FunnelStats {
   registrations: number;
   feedbacks: number;
   certificates: number;
+  videoOpens: number;
 }
 
 type Tab = "overview" | "participants" | "feedback" | "funnel";
@@ -264,6 +265,7 @@ function FunnelTab({ funnel }: { funnel: FunnelStats | null }) {
 
   const stages = [
     { label: "Registrations", value: funnel.registrations, color: "bg-blue-500" },
+    { label: "Video Plays", value: funnel.videoOpens, color: "bg-purple-500" },
     { label: "Feedback Submitted", value: funnel.feedbacks, color: "bg-amber-500" },
     { label: "Certificates Generated", value: funnel.certificates, color: "bg-green-500" },
   ];
