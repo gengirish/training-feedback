@@ -26,6 +26,16 @@ interface Feedback {
   created_at: string;
 }
 
+interface Certificate {
+  id: number;
+  certificate_id: string;
+  training_session: string;
+  user_name: string;
+  completion_date: string;
+  download_count: number;
+  generated_at: string;
+}
+
 type Tab = "recordings" | "guides" | "registrations" | "feedback";
 const validTabs: Tab[] = ["recordings", "guides", "registrations", "feedback"];
 
@@ -62,6 +72,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>("recordings");
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<Recording | null>(null);
   const [generatingCertificateFor, setGeneratingCertificateFor] = useState<string | null>(null);
@@ -80,6 +91,7 @@ export default function DashboardPage() {
         const data = await res.json();
         setRegistrations(data.registrations || []);
         setFeedbacks(data.feedbacks || []);
+        setCertificates(data.certificates || []);
       }
     } catch (err) {
       console.error("Failed to load dashboard:", err);
@@ -145,6 +157,7 @@ export default function DashboardPage() {
         throw new Error(message);
       }
 
+      const certId = response.headers.get("X-Certificate-Id");
       const pdfBlob = await response.blob();
       const objectUrl = URL.createObjectURL(pdfBlob);
       const anchor = document.createElement("a");
@@ -156,8 +169,11 @@ export default function DashboardPage() {
       URL.revokeObjectURL(objectUrl);
       setCertificateNotice({
         type: "success",
-        message: `Certificate download started for ${trainingSession}.`,
+        message: certId
+          ? `Certificate downloaded! Verify at /verify/${certId}`
+          : `Certificate download started for ${trainingSession}.`,
       });
+      fetchMyData();
     } catch (err) {
       setCertificateNotice({
         type: "error",
@@ -321,6 +337,7 @@ export default function DashboardPage() {
                 <RegistrationsTab
                   registrations={registrations}
                   completedSessions={new Set(feedbacks.map((f) => f.training_session))}
+                  certificates={certificates}
                   generatingCertificateFor={generatingCertificateFor}
                   onGenerateCertificate={handleGenerateCertificate}
                 />
@@ -544,14 +561,32 @@ function GuidesTab() {
 function RegistrationsTab({
   registrations,
   completedSessions,
+  certificates,
   generatingCertificateFor,
   onGenerateCertificate,
 }: {
   registrations: Registration[];
   completedSessions: Set<string>;
+  certificates: Certificate[];
   generatingCertificateFor: string | null;
   onGenerateCertificate: (trainingSession: string) => Promise<void>;
 }) {
+  const certMap = new Map(certificates.map((c) => [c.training_session, c]));
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyLink = (certId: string) => {
+    const url = `${window.location.origin}/verify/${certId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(certId);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
+  const handleLinkedIn = (cert: Certificate) => {
+    const url = `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(cert.training_session)}&organizationName=${encodeURIComponent("IntelliForge AI")}&certUrl=${encodeURIComponent(`${window.location.origin}/verify/${cert.certificate_id}`)}&dateMonth=${new Date(cert.completion_date).getMonth() + 1}&dateYear=${new Date(cert.completion_date).getFullYear()}`;
+    window.open(url, "_blank", "noopener");
+  };
+
   if (registrations.length === 0) {
     return (
       <div className="glass-card py-16 text-center">
@@ -576,10 +611,11 @@ function RegistrationsTab({
 
   const completedCount = registrations.filter((reg) => completedSessions.has(reg.training_session)).length;
   const pendingCount = registrations.length - completedCount;
+  const certCount = certificates.length;
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-4">
         <div className="glass-card p-4">
           <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>Registered</p>
           <p className="mt-1 text-2xl font-bold" style={{ color: "var(--foreground)" }}>{registrations.length}</p>
@@ -592,76 +628,153 @@ function RegistrationsTab({
           <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>Awaiting Feedback</p>
           <p className="mt-1 text-2xl font-bold text-amber-600">{pendingCount}</p>
         </div>
+        <div className="glass-card p-4">
+          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>Certificates</p>
+          <p className="mt-1 text-2xl font-bold text-green-600">{certCount}</p>
+        </div>
       </div>
 
-      {registrations.map((reg, i) => (
-        <motion.div
-          key={reg.id}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: i * 0.05 }}
-          className="glass-card flex items-center justify-between p-4"
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-900/30">
-              <svg className="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{reg.training_session}</p>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>
-                Registered on {new Date(reg.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                  1. Registered
+      {registrations.map((reg, i) => {
+        const cert = certMap.get(reg.training_session);
+        const hasFeedback = completedSessions.has(reg.training_session);
+        const isGenerating = generatingCertificateFor === reg.training_session;
+
+        return (
+          <motion.div
+            key={reg.id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className="glass-card overflow-hidden"
+          >
+            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-900/30">
+                  <svg className="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{reg.training_session}</p>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    Registered on {new Date(reg.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      1. Registered
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      hasFeedback
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    }`}>
+                      2. {hasFeedback ? "Feedback Submitted" : "Submit Feedback"}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      cert
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : hasFeedback
+                        ? "bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                    }`}>
+                      3. {cert ? "Certificate Issued" : hasFeedback ? "Certificate Ready" : "Certificate Locked"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  Enrolled
                 </span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  completedSessions.has(reg.training_session)
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                }`}>
-                  2. {completedSessions.has(reg.training_session) ? "Feedback Submitted" : "Submit Feedback"}
-                </span>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  completedSessions.has(reg.training_session)
-                    ? "bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400"
-                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                }`}>
-                  3. {completedSessions.has(reg.training_session) ? "Certificate Ready" : "Certificate Locked"}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => onGenerateCertificate(reg.training_session)}
+                  disabled={!hasFeedback || isGenerating}
+                  className="rounded-lg border px-3 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ borderColor: "var(--card-border)", color: "var(--foreground)" }}
+                  title={
+                    cert
+                      ? "Download your certificate again"
+                      : hasFeedback
+                      ? "Generate and download your certificate"
+                      : "Submit feedback after attending to unlock certificate"
+                  }
+                >
+                  {isGenerating
+                    ? "Generating..."
+                    : cert
+                    ? "Download Again"
+                    : hasFeedback
+                    ? "Generate Certificate"
+                    : "Complete Feedback First"}
+                </button>
               </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-              Enrolled
-            </span>
-            <button
-              type="button"
-              onClick={() => onGenerateCertificate(reg.training_session)}
-              disabled={!completedSessions.has(reg.training_session) || generatingCertificateFor === reg.training_session}
-              className="rounded-lg border px-3 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              style={{
-                borderColor: "var(--card-border)",
-                color: "var(--foreground)",
-              }}
-              title={
-                completedSessions.has(reg.training_session)
-                  ? "Download your certificate"
-                  : "Submit feedback after attending to unlock certificate"
-              }
-            >
-              {generatingCertificateFor === reg.training_session
-                ? "Generating..."
-                : completedSessions.has(reg.training_session)
-                ? "Download Certificate"
-                : "Complete Feedback First"}
-            </button>
-          </div>
-        </motion.div>
-      ))}
+
+            {/* Certificate actions bar */}
+            {cert && (
+              <div
+                className="flex flex-wrap items-center gap-3 border-t px-4 py-2.5"
+                style={{ borderColor: "var(--card-border)", background: "var(--input-bg)" }}
+              >
+                <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                  Generated {new Date(cert.generated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {cert.download_count > 1 && ` · Downloaded ${cert.download_count}x`}
+                </span>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleCopyLink(cert.certificate_id)}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
+                    style={{ color: "var(--foreground)" }}
+                    title="Copy verification link"
+                  >
+                    {copiedId === cert.certificate_id ? (
+                      <>
+                        <svg className="h-3 w-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.04a4.5 4.5 0 00-6.364-6.364L4.5 8.257" />
+                        </svg>
+                        Verify Link
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLinkedIn(cert)}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-[#0A66C2] transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    title="Add to LinkedIn profile"
+                  >
+                    <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                    </svg>
+                    LinkedIn
+                  </button>
+                  <a
+                    href={`/verify/${cert.certificate_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
+                    style={{ color: "var(--foreground)" }}
+                    title="Open verification page"
+                  >
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                    </svg>
+                    Verify
+                  </a>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        );
+      })}
     </div>
   );
 }

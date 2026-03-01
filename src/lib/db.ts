@@ -131,6 +131,85 @@ export async function getLatestFeedbackByEmailAndSession(email: string, training
   });
 }
 
+export interface CertificateRecord {
+  id: number;
+  certificate_id: string;
+  user_email: string;
+  user_name: string;
+  training_session: string;
+  completion_date: string;
+  instructor_name: string;
+  filename: string;
+  download_count: number;
+  generated_at: Date;
+}
+
+export async function findCertificate(
+  userEmail: string,
+  trainingSession: string,
+): Promise<(CertificateRecord & { pdf_base64: string }) | null> {
+  return prisma.certificate_history.findUnique({
+    where: {
+      user_email_training_session: {
+        user_email: userEmail,
+        training_session: trainingSession,
+      },
+    },
+  });
+}
+
+export async function saveCertificate(data: {
+  user_email: string;
+  user_name: string;
+  training_session: string;
+  completion_date: string;
+  instructor_name: string;
+  filename: string;
+  pdf_base64: string;
+}) {
+  return prisma.certificate_history.create({ data });
+}
+
+export async function incrementCertificateDownload(id: number) {
+  return prisma.certificate_history.update({
+    where: { id },
+    data: { download_count: { increment: 1 } },
+  });
+}
+
+export async function getCertificatesByEmail(email: string): Promise<CertificateRecord[]> {
+  return prisma.certificate_history.findMany({
+    where: { user_email: email },
+    select: {
+      id: true,
+      certificate_id: true,
+      user_email: true,
+      user_name: true,
+      training_session: true,
+      completion_date: true,
+      instructor_name: true,
+      filename: true,
+      download_count: true,
+      generated_at: true,
+    },
+    orderBy: { generated_at: "desc" },
+  });
+}
+
+export async function getCertificateByPublicId(certificateId: string) {
+  return prisma.certificate_history.findUnique({
+    where: { certificate_id: certificateId },
+    select: {
+      certificate_id: true,
+      user_name: true,
+      training_session: true,
+      completion_date: true,
+      instructor_name: true,
+      generated_at: true,
+    },
+  });
+}
+
 export async function trackEvent(
   userEmail: string,
   eventName: string,

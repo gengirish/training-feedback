@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { getLatestFeedbackByEmailAndSession, hasRegisteredForSession, trackEvent } from "@/lib/db";
+import {
+  getLatestFeedbackByEmailAndSession,
+  hasRegisteredForSession,
+  findCertificate,
+  saveCertificate,
+  incrementCertificateDownload,
+  trackEvent,
+} from "@/lib/db";
 
 const CERTIFICATE_API_URL = "https://markdown-to-pdf-six.vercel.app/api/certificate/n8n";
 
@@ -48,6 +55,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const existing = await findCertificate(session.user.email, trainingSession);
+
+    if (existing) {
+      await incrementCertificateDownload(existing.id);
+      trackEvent(session.user.email, "certificate_downloaded", {
+        training_session: trainingSession,
+        certificate_id: existing.certificate_id,
+        download_count: existing.download_count + 1,
+      });
+
+      const pdfBuffer = Buffer.from(existing.pdf_base64, "base64");
+      return new NextResponse(pdfBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${existing.filename}"`,
+          "X-Certificate-Id": existing.certificate_id,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
     const participantName = feedback.participant_name || session.user.name || session.user.email.split("@")[0];
     const completionDate = toYyyyMmDd(feedback.created_at);
     const instructorName = process.env.CERTIFICATE_INSTRUCTOR_NAME || "IntelliForge AI Team";
@@ -82,18 +111,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Certificate provider returned invalid payload" }, { status: 502 });
     }
 
+    const fileName = providerPayload.filename || `certificate-${toSafeFilePart(trainingSession) || "training"}.pdf`;
+
+    const saved = await saveCertificate({
+      user_email: session.user.email,
+      user_name: participantName,
+      training_session: trainingSession,
+      completion_date: completionDate,
+      instructor_name: instructorName,
+      filename: fileName,
+      pdf_base64: providerPayload.pdf_base64,
+    });
+
     trackEvent(session.user.email, "certificate_generated", {
       training_session: trainingSession,
+      certificate_id: saved.certificate_id,
     });
 
     const pdfBuffer = Buffer.from(providerPayload.pdf_base64, "base64");
-    const fileName = providerPayload.filename || `certificate-${toSafeFilePart(trainingSession) || "training"}.pdf`;
 
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${fileName}"`,
+        "X-Certificate-Id": saved.certificate_id,
         "Cache-Control": "no-store",
       },
     });

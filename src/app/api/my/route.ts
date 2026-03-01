@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { getParticipantsByEmail, getFeedbacksByEmail } from "@/lib/db";
+import { getParticipantsByEmail, getFeedbacksByEmail, getCertificatesByEmail } from "@/lib/db";
 
 export async function GET() {
   try {
@@ -11,10 +11,13 @@ export async function GET() {
     }
 
     const email = session.user.email;
-    const registrations = await getParticipantsByEmail(email);
-    const feedbacks = await getFeedbacksByEmail(email);
+    const [registrations, feedbacks, certificates] = await Promise.all([
+      getParticipantsByEmail(email),
+      getFeedbacksByEmail(email),
+      getCertificatesByEmail(email),
+    ]);
 
-    return NextResponse.json({ registrations, feedbacks });
+    return NextResponse.json({ registrations, feedbacks, certificates });
   } catch (error) {
     console.error("My data error:", error);
     return NextResponse.json({ error: "Failed to fetch data" }, { status: 500 });

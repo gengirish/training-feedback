@@ -38,6 +38,23 @@ model feedback {
   created_at              DateTime @default(now())
 }
 
+model certificate_history {
+  id               Int      @id @default(autoincrement())
+  certificate_id   String   @unique @default(uuid())
+  user_email       String
+  user_name        String
+  training_session String
+  completion_date  String
+  instructor_name  String
+  filename         String
+  pdf_base64       String
+  download_count   Int      @default(1)
+  generated_at     DateTime @default(now())
+
+  @@unique([user_email, training_session])
+  @@index([user_email])
+}
+
 model events {
   id         Int      @id @default(autoincrement())
   user_email String
